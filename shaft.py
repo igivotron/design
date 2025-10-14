@@ -74,10 +74,14 @@ def MCDz(x, L1, L2, FBz, FCz):
     return L2*FBz + (x - L1 - L2) * (FCz + FBz)
 
 def MMax(My, Mz):
-    return np.sqrt(np.max(My)**2 + np.max(Mz)**2)
+    return np.max(np.sqrt(My**2 + Mz**2))
 
-def get_d(M, T, sigma_yield):
+def get_d(My, Mz, T, sigma_yield):
+    M = MMax(My, Mz)
     return ((32*M/np.pi)**2 + 3*(16*T/np.pi)**2)**(1/6) / (sigma_yield**(1/3))
+
+def torsion_stress(T, d):
+    return 16*T/(np.pi*d**3)
     
 
 def compute_forces(L1, L2, L3, Fp, Fr, Fu, FBy, FBz, FCy, FCz):
@@ -93,8 +97,7 @@ def optimize_d(L, Fp, Fr, Fu, sigma_yield):
     L1, L2, L3 = L
     FBy, FBz, FCy, FCz = compute_reactions(Fp, Fr, Fu, L1, L2, L3)
     Fy, My, Fz, Mz, _ = compute_forces(L1, L2, L3, Fp, Fr, Fu, FBy, FBz, FCy, FCz)
-    Mmax = MMax(My, Mz)
-    d = get_d(Mmax, T, sigma_yield)
+    d = get_d(My, Mz, T, sigma_yield)
     return d
 
 ### Optimization
@@ -130,7 +133,8 @@ if plot:
     # Y direction
     FBy, FBz, FCy, FCz = compute_reactions(Fp, Fr, Fu, L1, L2, L3)
     Fy, My, Fz, Mz, x = compute_forces(L1, L2, L3, Fp, Fr, Fu, FBy, FBz, FCy, FCz)
-    print("d (m):", get_d(MMax(My, Mz), T, sigma_yield))
+    d = get_d(My, Mz, T, sigma_yield)
+    print("d (m):", d)
 
     plt.figure(figsize=(10, 6))
     plt.axhline(0, color='black', linewidth=1.5)
@@ -168,6 +172,16 @@ if plot:
     plt.title('Shear Force and Bending Moment Diagram (Z direction)')
     plt.xlabel('Position along the beam (m)')
     plt.ylabel('Force (N) / Moment (N.m)')
+    plt.legend()
+    plt.grid()
+
+    # Torsion stress
+    plt.figure(figsize=(10, 6))
+    torsion_stress_values = torsion_stress(T, d)*np.ones_like(x)
+    plt.plot(x, torsion_stress_values, label='Torsion Stress (Pa)', color='green')
+    plt.title('Torsion Stress along the Shaft')
+    plt.xlabel('Position along the beam (m)')
+    plt.ylabel('Stress (Pa)')
     plt.legend()
     plt.grid()
 
