@@ -78,6 +78,7 @@ def MMax(My, Mz):
 
 def get_d(My, Mz, T, sigma_yield):
     M = MMax(My, Mz)
+    # BORDEL CA PRENDS LA TORSION EN COMPTE
     return ((32*M/np.pi)**2 + 3*(16*T/np.pi)**2)**(1/6) / (sigma_yield**(1/3))
 
 def torsion_stress(T, d):
