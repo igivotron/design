@@ -20,9 +20,11 @@ methods = parser.m
 alpha = 20 # degree - angle rouage
 Rd = 0.5 # m - rayon de la roue dentée
 Rp = 0.5 # m - rayon de la poulie
+security_factor = 2
 
 # Forces
-Fp = -T / Rp
+T *= security_factor
+Fp = -T / Rp 
 Fu = T / Rd
 Fr = -Fu * np.tan(np.radians(alpha))
 
@@ -81,6 +83,10 @@ def get_d(My, Mz, T, sigma_yield):
     # BORDEL CA PRENDS LA TORSION EN COMPTE
     return ((32*M/np.pi)**2 + 3*(16*T/np.pi)**2)**(1/6) / (sigma_yield**(1/3))
 
+def get_local_d(My, Mz, T, sigma_yield):
+    M = np.sqrt(My**2 + Mz**2)
+    return ((32*M/np.pi)**2 + 3*(16*T/np.pi)**2)**(1/6) / (sigma_yield**(1/3))
+
 def torsion_stress(T, d):
     return 16*T/(np.pi*d**3)
     
@@ -102,7 +108,7 @@ def optimize_d(L, Fp, Fr, Fu, sigma_yield):
     return d
 
 ### Optimization
-bounds = [(0.1, 1), (0.1, 1), (0.1, 1)]
+bounds = [(0.15, 1), (0.1, 1), (0.15, 1)]
 if not methods:
     res = sp.optimize.minimize(lambda L: optimize_d(L, Fp, Fr, Fu, sigma_yield), x0=[0.6, 0.5, 0.4], bounds=bounds, method='Powell')
     print("Optimal lengths (L1, L2, L3):", res.x)
@@ -135,6 +141,8 @@ if plot:
     FBy, FBz, FCy, FCz = compute_reactions(Fp, Fr, Fu, L1, L2, L3)
     Fy, My, Fz, Mz, x = compute_forces(L1, L2, L3, Fp, Fr, Fu, FBy, FBz, FCy, FCz)
     d = get_d(My, Mz, T, sigma_yield)
+    Total_moment = np.sqrt(My**2 + Mz**2)
+    local_d = get_local_d(My, Mz, T, sigma_yield)
     print("d (m):", d)
 
     plt.figure(figsize=(10, 6))
@@ -156,6 +164,7 @@ if plot:
     plt.ylabel('Force (N) / Moment (N.m)')
     plt.legend()
     plt.grid()
+    plt.savefig('Shear_Moment_Y.png')
 
     # Z direction
     plt.figure(figsize=(10, 6))
@@ -175,15 +184,30 @@ if plot:
     plt.ylabel('Force (N) / Moment (N.m)')
     plt.legend()
     plt.grid()
+    plt.savefig('Shear_Moment_Z.png')
 
-    # Torsion stress
+    # Total Moment and local diameter
     plt.figure(figsize=(10, 6))
-    torsion_stress_values = torsion_stress(T, d)*np.ones_like(x)
-    plt.plot(x, torsion_stress_values, label='Torsion Stress (Pa)', color='green')
-    plt.title('Torsion Stress along the Shaft')
-    plt.xlabel('Position along the beam (m)')
-    plt.ylabel('Stress (Pa)')
-    plt.legend()
-    plt.grid()
+    fig, ax1 = plt.subplots(figsize=(10, 6))
+    color_m = 'green'
+    ax1.plot(x, Total_moment, label='Total Bending Moment (N.m)', color=color_m)
+    ax1.fill_between(x, 0, Total_moment, color='lightgreen', alpha=0.5)
+    ax1.set_xlabel('Position along the beam (m)')
+    ax1.set_ylabel('Total Bending Moment (N.m)', color=color_m)
+    ax1.tick_params(axis='y', labelcolor=color_m)
+    ax1.grid()
 
-    plt.show()
+    ax2 = ax1.twinx()
+    color_d = 'purple'
+    ax2.plot(x, local_d, label='Local Diameter (m)', color=color_d)
+    ax2.set_ylabel('Local Diameter (m)', color=color_d)
+    ax2.tick_params(axis='y', labelcolor=color_d)
+
+    # combined legend
+    lines1, labels1 = ax1.get_legend_handles_labels()
+    lines2, labels2 = ax2.get_legend_handles_labels()
+    ax1.legend(lines1 + lines2, labels1 + labels2, loc='upper center')
+
+    plt.title('Total Bending Moment and Local Diameter along the Shaft')
+    plt.savefig('Total_and_Local_Diameter.png')
+
